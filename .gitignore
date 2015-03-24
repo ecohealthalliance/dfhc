@@ -105,3 +105,7 @@ Thumbs.db
 # Various project directories.
 out/
 cache/
+
+# Sublime Text files
+*.sublime-project
+*.sublime-workspace
