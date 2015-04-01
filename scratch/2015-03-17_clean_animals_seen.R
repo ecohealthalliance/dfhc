@@ -21,12 +21,7 @@ animals[animals == ""] <- "blank"
 animals_lower <- tolower(animals)
 
 # Tokenize
-
-# First we remove spaces from the start and end.
-animals_trimmed <- unlist(strsplit(animals_lower, split = "^\\s+|\\s+$"))
-# Then we tokenize on commas and the word "and", also removing interior spaces.
-animals_tokenized <- strsplit(animals_trimmed, split = ",\\s*|\\s*(\\band?\\b)\\s*")
-
+ages_tokenized <- strsplit(ages_lower, split = "^\\s+|\\s*,\\s*|\\s*(\\band?\\b)\\s*|\\s+$")
 
 all_animals <- as.data.frame(table(unlist(animals_tokenized)))
 arrange(all_animals, -Freq)
@@ -68,8 +63,6 @@ convert_vector_to_logical_df <- function(x) {
 
 animals_dfs <- llply(animals_revalue, convert_vector_to_logical_df)
 
-
-
 animals_dfs_2 <- llply(seq_along(animals_dfs), function(i) {
   PID <- names(animals_dfs)[i] 
   cbind(PID, animals_dfs[[i]], stringsAsFactors = FALSE)
@@ -77,7 +70,6 @@ animals_dfs_2 <- llply(seq_along(animals_dfs), function(i) {
 
 
 animals_combined <- bind_rows(animals_dfs_2)
-
 animals_combined[is.na(animals_combined)] <- FALSE
 
 animals_combined
