@@ -1,6 +1,11 @@
 # History files
 .Rhistory
 
+# R data files
+*.RData
+*.rdx
+*.rdb
+
 # Example code in package build process
 *-Ex.R
 
