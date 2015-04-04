@@ -1,0 +1,145 @@
+---
+title: "Column Export 2015-04-04"
+author: "Toph Allen"
+date: "April 4, 2015"
+output: html_document
+---
+
+## Introduction
+
+I'm extracting data from the DFHC Excel sheet for the following variables:
+
+1. Proportion (+- sample size for question) of respondents indicating that they have:
+    - butchered live animals in the last year
+    - seen wildlife near their home in the last year & what types
+    - seen wildlife inside their home in the last year
+    - seen rodents in their home in the last year
+    - been bitten or scratched by wildlife in the last year
+    - entered the forest and why
+2. Types of wildlife consumed (presence/absence matrix by respondent ID)
+
+## Setup
+
+```{r knitr_options}
+knitr::opts_knit$set(root.dir = "~/Dropbox (EHA)/repositories/dfhc", width = 75)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = TRUE)
+options(digits = 2)
+```
+
+
+```{r r_setup}
+library(stringr)
+library(plyr)
+library(dplyr)
+library(magrittr)
+
+source("R/helper_functions.R")
+
+descending_table <- function(x) {
+  dplyr::arrange(data.frame(table(x)), -Freq)
+}
+
+descending_kable <- function(x) {
+  knitr::kable(descending_table(x))
+}
+```
+
+## Loading raw dataset, selecting columns
+
+Looking over the list of things Lizzie asked me to extract and comparing it to the spreadsheet, I came up with the following columns:
+
+- metadata
+    - 6: respondent gender
+- wildlife contact
+    - 22: wildlife near home, yes/no
+    - 24: wildlife near home, taxonomy categories
+    - 26: wildlife in home, yes/no
+    - 28: wildlife in home, taxonomy categories
+    - 30: wildlife in home, frequency categories
+    - 132: wildlife contact, categories
+    - 134: where contact happened, categories
+    - 136: wildlife species, taxonomy categories
+- forest entry
+    - 78: enter forest - why: self, categories
+    - 76: enter forest - how often, frequency categories
+- wildlife consumption
+    - 122: self past consumption wildlife, yes/no
+    - 123: people in community past consumption wildlife, yes/no
+    - 124: self:wildlife currently consumed, taxonomy categories
+    - 126: community: wildlife currently consumed, taxonomy categories
+- butchering live animals in the past year
+    - N.B. “Butchered live animals in the last year” isn’t a yes/no question. It seems to be spread across multiple categories, and the answers don’t seem to indicate whether the person or someone else butchered the animal.
+    - “Who prepares the carcass” only has two answers in the entire column.
+
+I'm going to not bother with the last set of questions until I can check with Lizzie and Allison about how to get that information.
+
+```{r load_and_select_data}
+
+dfhc_raw <- read.csv("rawdata/predict_hac_data_raw.csv",
+                 as.is = TRUE)
+
+cols_to_keep <- c("pid" = 1,
+                  "respondent_gender" = 6,
+                  "wildlife_near_home_yn" = 22,
+                  "wildlife_near_home_tax_cat" = 24,
+                  "wildlife_in_home_yn" = 26,
+                  "wildlife_in_home_tax_cat" = 28,
+                  "wildlife_in_home_freq_cat" = 30,
+                  "wildlife_contact_cat" = 132,
+                  "where_contact_happened_cat" = 134,
+                  "wildlife_species_tax_cat" = 136,
+                  "enter_forest_how_often_freq_cat" = 76,
+                  "enter_forest_why_self_cat" = 78,
+                  "self_past_consumption_wildlife_yn" = 122,
+                  "people_in_community_past_consumption_wildlife_yn" = 123,
+                  "self_wildlife_currently_consumed_tax_cat" = 124,
+                  "community_wildlife_currently_consumed_tax_cat" = 126)
+
+cols_raw <- dfhc_raw[, cols_to_keep]
+
+names(cols_raw) <- names(cols_to_keep)
+
+cols_raw <- colwise(initial_character_column_cleaning)(cols_raw)
+
+
+```
+How many distinct responses each question has will inform how much cleaning we'll need to do. We'll also print out tables of the responses.
+
+```{r assess_cleaning}
+str(dplyr::summarise_each(cols_raw, funs(n_distinct)))
+descending_kable(cols_raw$respondent_gender)
+descending_kable(cols_raw$wildlife_near_home_yn)
+descending_kable(cols_raw$wildlife_near_home_tax_cat)
+descending_kable(cols_raw$wildlife_in_home_yn)
+descending_kable(cols_raw$wildlife_in_home_tax_cat)
+descending_kable(cols_raw$wildlife_in_home_freq_cat)
+descending_kable(cols_raw$wildlife_contact_cat)
+descending_kable(cols_raw$where_contact_happened_cat)
+descending_kable(cols_raw$wildlife_species_tax_cat)
+descending_kable(cols_raw$enter_forest_how_often_freq_cat)
+descending_kable(cols_raw$enter_forest_why_self_cat)
+descending_kable(cols_raw$self_past_consumption_wildlife_yn)
+descending_kable(cols_raw$people_in_community_past_consumption_wildlife_yn)
+descending_kable(cols_raw$self_wildlife_currently_consumed_tax_cat)
+descending_kable(cols_raw$community_wildlife_currently_consumed_tax_cat)
+```
+
+For each column:
+
+- Male/female seems good.
+- Wildlife near home yes/no seems good.
+- Wildlife near home categories needs tokenization and turning into a matrix.
+- Wildlife in home yes/no seems good.
+- Wildlife in home categories needs tokenization and turning into a matrix.
+- Wildlife in home frequency needs… well, it looks like there are one or two answers where "daily" appears alongside another category. Those just need to be replaced with "daily".
+- Wildlife contact category has a few entries where "bitten" occurs alongside other entries. I'm just going to add those to "bitten".
+- Wildlife contact where happened has only two answers which aren't in the proper categories, and both could be replaced with "in the home".
+- Wildlife contact species taxonomic categories needs splitting just a bit of recategorization and renaming.
+- Wildlife contact category has a few responses where "few times per week" etc. appear alongside "other" or "never". These could be recategorized. But also, they're only one or two responses.
+- Why enter forest reasons are a little confusing, and I have questions about the best way to lump it into bigger categories.
+- Wildlife consumed (past) yes/no are good.
+- **I need to add wildlife consumed current.**
+- Taxonomy of wildlife consumed is basically useless; there are only seven non-blank responses.
+- Same for the community-related question. There are eight responses.
+
+I'm going to continue this on Monday.

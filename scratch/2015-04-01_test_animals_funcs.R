@@ -20,20 +20,17 @@ animals <- tokenized_list(animals)
 animal_replace = c("rodents" = "rodent",
                    "rats" = "rodent",
                    "shrew-faced ground squirrel" = "rodent",
-                   "small mammal" = "small mammal",
+                   "small mammals" = "small mammal"
                    "foxes" = "small mammal",
                    "bats" = "bat",
-                   "bird" = "bird",
                    "birds" = "bird",
-                   "primate" = "primate",
-                   "reptile" = "reptile",
+                   "primates" = "primate",
+                   "reptiles" = "reptile",
                    "snake" = "reptile",
                    "snakes" = "reptile",
                    "other" = "other",
                    "elephants" = "other",
-                   "yellow trotted" = "other",
-                   "not answered" = "not answered",
-                   "skipped" = "skipped")
+                   "yellow trotted" = "other")
 
 animals <- replace_values(animals, animal_replace)
 
