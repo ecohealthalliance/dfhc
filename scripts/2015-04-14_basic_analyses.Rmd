@@ -1,0 +1,260 @@
+---
+title: "Basic Summaries of DFHC Variables of Interest"
+author: "Toph Allen"
+date: "April 14, 2015"
+output:
+  html_document:
+  - default
+  pdf_document:
+  - default
+  word_document:
+  - default
+---
+
+
+
+```{r knitr_options, echo = FALSE}
+knitr::opts_knit$set(root.dir = "~/Dropbox (EHA)/repositories/dfhc", width = 75)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = FALSE)
+# knitr::opts_chunk$set(fig.width = 6, fig.height = 4)
+options(digits = 2)
+
+```
+
+```{r r_setup}
+library(stringr)
+library(plyr)
+library(dplyr)
+library(magrittr)
+library(printr)
+library(ggvis)
+library(ggplot2)
+library(tidyr)
+
+```
+
+```{r read}
+dfhc <- read.csv("out/cols_clean.csv", as.is = TRUE)
+names(dfhc) <- c("PID", names(dfhc)[-1])
+wildlife_consumpt_community_curr <- read.csv("out/wildlife_consumpt_community_curr_clean.csv", as.is = TRUE)
+wildlife_consumpt_self_curr <- read.csv("out/wildlife_consumpt_self_curr_clean.csv", as.is = TRUE)
+wildlife_in_home_tax_cat <- read.csv("out/wildlife_in_home_tax_cat_clean.csv", as.is = TRUE)
+wildlife_near_home_tax_cat <- read.csv("out/wildlife_near_home_tax_cat_clean.csv", as.is = TRUE)
+
+save.image("cache/basic_analyses_2015-04-14.RData")
+
+```
+
+## Introduction
+
+I cleaned a few columns from the DEEP Forest Human Contact data. These include respondent gender, variables on wildlife seen in and near the home, data on incidents of contact with wild animals, and data on wildlife consumption. These are summarized below.
+
+## Topic: Gender
+
+```{r summarize}
+
+# dfhc %>%
+#   ggvis(~respondent_gender) %>%
+#   layer_bars()
+
+qplot(x = respondent_gender, data = dfhc) + theme_bw()
+
+table(dfhc$respondent_gender)
+
+```
+
+## Topic: Wildlife Near and In Home
+
+### Variable: Seen wildlife near home, yes/no
+
+The vast majority of respondents report having seen animals in their home.
+
+```{r}
+
+# Variables of interest include "wildlife_near_home_yn", "wildlife_in_home_yn",
+# "wildlife_in_home_freq_cat", and the data frames "wildlife_in_home_tax_cat"
+# and "wildlife_near_home_tax_cat".
+
+# dfhc %>%
+#   ggvis(~wildlife_near_home_yn) %>%
+#   layer_bars(fill = ~respondent_gender)
+
+qplot(x = wildlife_near_home_yn, fill = respondent_gender, data = dfhc) + theme_bw()
+
+table(dfhc$wildlife_near_home_yn)
+
+table(dfhc$respondent_gender, dfhc$wildlife_near_home_yn)
+
+```
+
+A higher proportion of women report seeing wildlife near their home.
+
+```{r}
+
+# dfhc %>%
+#   ggvis(~respondent_gender) %>%
+#   layer_bars(fill = ~wildlife_near_home_yn)
+
+qplot(x = respondent_gender, fill = wildlife_near_home_yn, data = dfhc, position = "fill") + theme_bw()
+
+```
+
+## Variable: Types of wildlife seen near home
+
+Breakdown of types of animals seen near the home. The following plots represent the number of respondents who answered that they had seen the following types of animals near their homes.
+
+```{r}
+
+wildlife_near_home_tax_cat %>%
+  select(-PID) %>%
+  summarise_each(funs(sum)) %>%
+  str()
+
+# wildlife_near_home_tax_cat %>%
+#   gather(variable, seen, -PID) %>%
+#   mutate(seen = as.numeric(seen)) %>%
+#   left_join(dfhc) %>%
+#   ggvis(~variable, ~seen) %>%
+#   layer_bars()
+
+wildlife_near_home_tax_cat %>%
+  gather(variable, seen, -PID) %>%
+  mutate(seen = as.numeric(seen)) %>%
+  left_join(dfhc) %>%
+  qplot(x = variable, y = seen, data = ., geom = "bar", stat = "identity") + theme_bw()
+
+# wildlife_near_home_tax_cat %>%
+#   gather(variable, response, -PID) %>%
+#   mutate(response = as.numeric(response)) %>%
+#   left_join(dfhc) %>%
+#   ggvis(~variable, ~response) %>%
+#   layer_bars(fill = ~respondent_gender)
+
+wildlife_near_home_tax_cat %>%
+  gather(variable, response, -PID) %>%
+  mutate(response = as.numeric(response)) %>%
+  left_join(dfhc) %>%
+  arrange(respondent_gender) %>%
+  qplot(x = variable, y = response, fill = respondent_gender, data = ., geom = "bar", stat = "identity") + theme_bw()
+
+
+```
+
+### Variable: Seen wildlife near home, yes/no
+
+```{r}
+
+qplot(x = wildlife_in_home_yn, fill = respondent_gender, data = dfhc) + theme_bw()
+
+table(dfhc$wildlife_in_home_yn)
+
+t <- table(dfhc$respondent_gender, dfhc$wildlife_in_home_yn)
+# t
+prop.table(t)
+# margin.table(t, 1)
+# margin.table(t, 2)
+# ftable(dfhc$respondent_gender, dfhc$wildlife_in_home_yn)
+
+
+```
+
+
+### Variable: Types of wildlife seen in home
+
+```{r}
+
+wildlife_near_home_tax_cat %>%
+  select(-PID) %>%
+  summarise_each(funs(sum)) %>%
+  str()
+
+wildlife_in_home_tax_cat %>%
+  gather(variable, response, -PID) %>%
+  mutate(response = as.numeric(response)) %>%
+  left_join(dfhc) %>%
+  qplot(x = variable, y = response, data = ., geom = "bar", stat = "identity") + theme_bw()
+
+```
+
+Comparison of types of wildlife seen *in* versus *near* respondents' homes:
+
+```{r}
+
+in_home <- wildlife_in_home_tax_cat %>%
+  gather(variable, response, -PID) %>%
+  mutate(response = as.numeric(response),
+         home = "in")
+
+
+near_home <- wildlife_near_home_tax_cat %>%
+  gather(variable, response, -PID) %>%
+  mutate(response = as.numeric(response),
+         home = "near")
+
+home <- bind_rows(in_home, near_home) %>%
+  filter(response == 1)
+
+qplot(x = variable, fill = home, data = home, geom = "histogram", position = "dodge") + theme_bw()
+
+```
+
+
+### Variable: Frequency of wildlife seen in home
+
+```{r}
+
+qplot(wildlife_in_home_freq_cat, data = dfhc) + theme_bw()
+
+table(dfhc$wildlife_in_home_freq_cat)
+prop.table(table(dfhc$wildlife_in_home_freq_cat))
+
+```
+
+## Topic: Wildlife Contact
+
+### Variable: Wildlife contact type
+
+```{r}
+
+qplot(wildlife_contact_cat, data = dfhc) + theme_bw()
+
+table(dfhc$wildlife_contact_cat)
+prop.table(table(dfhc$wildlife_contact_cat))
+
+```
+
+
+### Variable: Species of contact, amongst those who report "bitten"
+
+```{r}
+
+bitten <- filter(dfhc, wildlife_contact_cat == "bitten")
+
+qplot(wildlife_species_tax_cat, data = bitten) + theme_bw()
+
+table(bitten$wildlife_species_tax_cat)
+prop.table(table(bitten$wildlife_species_tax_cat))
+
+```
+
+### Variable: Where contact happened, amongst those who report "bitten"
+
+```{r}
+
+qplot(where_contact_happened_cat, data = bitten) + theme_bw()
+
+table(bitten$where_contact_happened_cat)
+prop.table(table(bitten$where_contact_happened_cat))
+
+```
+
+### Variable: How often do you enter the forest?
+
+```{r}
+
+qplot(enter_forest_how_often_freq_cat, data = dfhc) + theme_bw()
+
+table(dfhc$enter_forest_how_often_freq_cat)
+prop.table(table(dfhc$enter_forest_how_often_freq_cat))
+
+```

@@ -22,16 +22,17 @@ I'm extracting data from the DFHC Excel sheet for the following variables:
 
 ```{r knitr_options}
 knitr::opts_knit$set(root.dir = "~/Dropbox (EHA)/repositories/dfhc", width = 75)
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = TRUE)
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = FALSE)
 options(digits = 2)
-```
 
+```
 
 ```{r r_setup}
 library(stringr)
 library(plyr)
 library(dplyr)
 library(magrittr)
+library(printr)
 
 source("R/helper_functions.R")
 
@@ -78,6 +79,8 @@ I'm going to not bother with the last set of questions until I can check with Li
 dfhc_raw <- read.csv("rawdata/predict_hac_data_raw.csv",
                  as.is = TRUE)
 
+dfhc_raw <- dfhc_raw[1:406, ]
+
 cols_to_keep <- c("pid" = 1,
                   "respondent_gender" = 6,
                   "wildlife_near_home_yn" = 22,
@@ -90,38 +93,32 @@ cols_to_keep <- c("pid" = 1,
                   "wildlife_species_tax_cat" = 136,
                   "enter_forest_how_often_freq_cat" = 76,
                   "enter_forest_why_self_cat" = 78,
-                  "self_past_consumption_wildlife_yn" = 122,
-                  "people_in_community_past_consumption_wildlife_yn" = 123,
-                  "self_wildlife_currently_consumed_tax_cat" = 124,
-                  "community_wildlife_currently_consumed_tax_cat" = 126)
+                  "wildlife_consumpt_self_past_yn" = 122,
+                  "wildlife_consumpt_community_past_yn" = 123,
+                  "wildlife_consumpt_self_curr_cat" = 124,
+                  "wildlife_consumpt_self_curr_free" = 125,
+                  "wildlife_consumpt_community_curr_cat" = 126,
+                  "wildlife_consumpt_community_curr_free" = 127)
 
 cols_raw <- dfhc_raw[, cols_to_keep]
 
 names(cols_raw) <- names(cols_to_keep)
 
 cols_raw <- colwise(initial_character_column_cleaning)(cols_raw)
-
-
 ```
+
 How many distinct responses each question has will inform how much cleaning we'll need to do. We'll also print out tables of the responses.
 
 ```{r assess_cleaning}
+
 str(dplyr::summarise_each(cols_raw, funs(n_distinct)))
-descending_kable(cols_raw$respondent_gender)
-descending_kable(cols_raw$wildlife_near_home_yn)
-descending_kable(cols_raw$wildlife_near_home_tax_cat)
-descending_kable(cols_raw$wildlife_in_home_yn)
-descending_kable(cols_raw$wildlife_in_home_tax_cat)
-descending_kable(cols_raw$wildlife_in_home_freq_cat)
-descending_kable(cols_raw$wildlife_contact_cat)
-descending_kable(cols_raw$where_contact_happened_cat)
-descending_kable(cols_raw$wildlife_species_tax_cat)
-descending_kable(cols_raw$enter_forest_how_often_freq_cat)
-descending_kable(cols_raw$enter_forest_why_self_cat)
-descending_kable(cols_raw$self_past_consumption_wildlife_yn)
-descending_kable(cols_raw$people_in_community_past_consumption_wildlife_yn)
-descending_kable(cols_raw$self_wildlife_currently_consumed_tax_cat)
-descending_kable(cols_raw$community_wildlife_currently_consumed_tax_cat)
+
+for (name in names(cols_raw[-1])) {
+  cat("\n\n")
+  print(name)
+  print(descending_kable(cols_raw[, name]))
+}
+
 ```
 
 For each column:
@@ -137,9 +134,192 @@ For each column:
 - Wildlife contact species taxonomic categories needs splitting just a bit of recategorization and renaming.
 - Wildlife contact category has a few responses where "few times per week" etc. appear alongside "other" or "never". These could be recategorized. But also, they're only one or two responses.
 - Why enter forest reasons are a little confusing, and I have questions about the best way to lump it into bigger categories.
+
 - Wildlife consumed (past) yes/no are good.
-- **I need to add wildlife consumed current.**
+
+- The "wildlife currently consumed" questions aren't yes/no, they're categories, which I imagine could change the way that people answer and will make them non-comparable to the other questions.
 - Taxonomy of wildlife consumed is basically useless; there are only seven non-blank responses.
 - Same for the community-related question. There are eight responses.
+- However, the "other" columns here could be fruitful, as it seems that almost every "other" answer is a "yes", specifying animals. They will need to be tokenized before analysis.
 
-I'm going to continue this on Monday.
+So, this is the data cleaning that will happen:
+
+- Export as-is:
+    - `pid`
+    - `respondent_gender`
+    - `wildlife_near_home_yn`
+    - `wildlife_in_home_yn`
+    - `wildlife_consumpt_self_past_yn`
+    - `wildlife_consumpt_community_past_yn`
+
+## Making a pretty list of data cleaning to apply to each column.
+
+```{r}
+cols_meta <- list("pid" = "as_is",
+                  "respondent_gender" = "as_is",
+                  "wildlife_near_home_yn" = "as_is",
+                  "wildlife_near_home_tax_cat" = c("tokenize", "replace"),
+                  "wildlife_in_home_yn" = "as_is",
+                  "wildlife_in_home_tax_cat" = c("tokenize", "replace"),
+                  "wildlife_in_home_freq_cat" = "replace",
+                  "wildlife_contact_cat" = "replace",
+                  "where_contact_happened_cat" = "replace",
+                  "wildlife_species_tax_cat" = "replace",
+                  "enter_forest_how_often_freq_cat" = "replace",
+                  "enter_forest_why_self_cat" = "replace",
+                  "wildlife_consumpt_self_past_yn" = "as_is",
+                  "wildlife_consumpt_community_past_yn" = "as_is",
+                  "wildlife_consumpt_self_curr_cat" = c("tokenize", "combine"),
+                  "wildlife_consumpt_self_curr_free" = c("tokenize", "combine"),
+                  "wildlife_consumpt_community_curr_cat" = c("tokenize", "combine"),
+                  "wildlife_consumpt_community_curr_free" = c("tokenize", "combine"))
+
+cols_meta <- list_of_character_vectors_to_logical_matrix(cols_meta)
+colnames(cols_meta)[1] <- "name"
+
+cols_meta
+```
+
+## Export columns we're just going to leave as-is
+
+```{r as_is_columns}
+as_is <- cols_meta$name[cols_meta$as_is]
+cols_clean <- cols_raw[, cols_meta$name[cols_meta$as_is]]
+
+cleaned_cols <- names(cols_clean)
+
+```
+
+## Clean wildlife columns which require tokenizing and converting.
+
+```{r animal_columns}
+wildlife_near_home_tax_cat <- cols_raw[, "wildlife_near_home_tax_cat"]
+wildlife_in_home_tax_cat <- cols_raw[, "wildlife_in_home_tax_cat"]
+
+
+
+col_funs <- function(x) {
+  names(x) <- cols_raw$pid
+
+  x <- tokenized_list(x)
+
+  animal_replace = c("rodents" = "rodent",
+                     "rats" = "rodent",
+                     "shrew-faced ground squirrel" = "rodent",
+                     "small mammals" = "small mammal",
+                     "foxes" = "small mammal",
+                     "bats" = "bat",
+                     "birds" = "bird",
+                     "primates" = "primate",
+                     "reptiles" = "reptile",
+                     "snake" = "reptile",
+                     "snakes" = "reptile",
+                     "other" = "other",
+                     "elephants" = "other",
+                     "yellow trotted" = "other")
+
+  x <- replace_values(x, animal_replace)
+
+  x <- list_of_character_vectors_to_logical_matrix(x)
+}
+
+wildlife_near_home_tax_cat_clean <- col_funs(wildlife_near_home_tax_cat)
+wildlife_in_home_tax_cat_clean <- col_funs(wildlife_in_home_tax_cat)
+
+cleaned_cols <- c(cleaned_cols, "wildlife_near_home_tax_cat", "wildlife_in_home_tax_cat")
+
+```
+
+## Clean columns which need just minor replacements.
+
+```{r}
+# Look at the names of columns we have yet to clean.
+cols_meta2 <- cols_meta[!cols_meta$name %in% cleaned_cols, ]
+
+# These ones:
+cols_meta2[1:5, ]
+
+minor_cleaning <- cols_raw[, colnames(cols_raw) %in% cols_meta2$name[1:5]]
+
+for (name in names(minor_cleaning)) {
+  cat("\n\n")
+  print(name)
+  print(descending_kable(minor_cleaning[, name]))
+}
+
+names(minor_cleaning)
+
+minor_cleaning[, 1] <- revalue(minor_cleaning[, 1], 
+                               replace = c("daily, few times per week" = "other",
+                                           "daily, other (specify)" = "other",
+                                           "few times per week, other (specify)" = "other"))
+
+minor_cleaning[, 2] <- revalue(minor_cleaning[, 2], 
+                               replace = c("bitten, other (specify)" = "bitten",
+                                           "bitten, scratched" = "bitten"))
+
+minor_cleaning[, 3] <- revalue(minor_cleaning[, 3], 
+                               replace = c("in home, in the forest, other" = "other",
+                                           "in the garden" = "in home"))
+
+minor_cleaning[, 4] <- revalue(minor_cleaning[, 4], 
+                               replace = c(animal_replace,
+                                           "reptile, other" = "reptile",
+                                           "leaf snake" = "reptile"))
+
+minor_cleaning[, 5] <- revalue(minor_cleaning[, 5], 
+                               replace = c("few times per week, other" = "other",
+                                           "few times per month, other" = "other",
+                                           "never, daily" = "other"))
+
+for (name in names(minor_cleaning)) {
+  cat("\n\n")
+  print(name)
+  print(descending_kable(minor_cleaning[, name]))
+}
+
+cols_clean = cbind(cols_clean, minor_cleaning)
+
+```
+
+## Clean the last four columns, which require tokenizing but not converting.
+
+```{r}
+cols_meta3 <- cols_meta[15:18, ]
+
+wildlife_consumpt_self_curr <- cols_raw[, 15:16]
+wildlife_consumpt_community_curr <- cols_raw[, 17:18]
+
+col_funs2 <- function(x) {
+  x2  <- paste(x[, 1], x[, 2], sep = ",")
+  names(x2) <- cols_raw$pid
+
+  x2 <- tokenized_list(x2)
+
+  x2 <- list_of_character_vectors_to_logical_matrix(x2)
+
+  return(x2)
+}
+
+wildlife_consumpt_self_curr_clean <- col_funs2(wildlife_consumpt_self_curr)
+wildlife_consumpt_community_curr_clean <- col_funs2(wildlife_consumpt_community_curr)
+
+wildlife_consumpt_self_curr_clean
+wildlife_consumpt_community_curr_clean
+
+```
+
+## Save all clean CSVs.
+
+```{r}
+# Get a list of cleaned data frame names
+to_save <- grep("clean$", ls(envir = .GlobalEnv), value = TRUE)
+
+list_df <- mget(grep("clean$", ls(envir = .GlobalEnv), value = TRUE))
+
+lapply(seq_along(list_df),
+       function(i) write.csv(list_df[[i]], 
+                             paste0("out/", names(list_df)[i], ".csv"),
+                             row.names = FALSE))
+
+```
