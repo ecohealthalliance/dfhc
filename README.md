@@ -15,4 +15,17 @@ Deep Forest Human Contact datasets
 [14] "Females...Ages.in.HH"
 [24] "X1.3..Wildlife.near.home"
 
-# I'm adding to the readme file so I can commit something
+## License
+Copyright 2016 EcoHealth Alliance
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
