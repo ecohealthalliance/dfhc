@@ -1,27 +1,28 @@
 ---
 title: "Basic Summaries of DFHC Variables of Interest"
 author: "Toph Allen"
-date: "April 14, 2015"
+date: "April 22, 2015"
 output:
   html_document:
-  - default
+    css:
+    - ~/Dropbox (EHA)/repositories/dfhc/misc/vignette.css
+    theme: null
+    toc:
+    - yes
   pdf_document:
-  - default
-  word_document:
-  - default
+    toc:
+    - yes
 ---
-
-
 
 ```{r knitr_options, echo = FALSE}
 knitr::opts_knit$set(root.dir = "~/Dropbox (EHA)/repositories/dfhc", width = 75)
-knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, cache = FALSE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE, cache = FALSE)
 # knitr::opts_chunk$set(fig.width = 6, fig.height = 4)
 options(digits = 2)
 
 ```
 
-```{r r_setup}
+```{r r_setup, cache = FALSE}
 library(stringr)
 library(plyr)
 library(dplyr)
@@ -47,27 +48,35 @@ save.image("cache/basic_analyses_2015-04-14.RData")
 
 ## Introduction
 
-I cleaned a few columns from the DEEP Forest Human Contact data. These include respondent gender, variables on wildlife seen in and near the home, data on incidents of contact with wild animals, and data on wildlife consumption. These are summarized below.
+I cleaned some of columns from the DEEP Forest Human Contact Excel spreadsheet. The columns I initially focused on include respondent gender, variables on wildlife seen in and near the home, data on incidents of contact with wild animals, and data on wildlife consumption. These are summarized below.
 
-## Topic: Gender
+## Gender
 
-```{r summarize}
+Respondent gender is of interest for a number of reasons, both in describing the composition of the sample, and for subsequent analyses looking for gender differences in responses.
+
+
+```{r}
 
 # dfhc %>%
 #   ggvis(~respondent_gender) %>%
 #   layer_bars()
 
-qplot(x = respondent_gender, data = dfhc) + theme_bw()
+
+qplot(x = respondent_gender, data = dfhc) + theme_bw() + labs(x = "Gender", y = "Count", title = "Gender of survey respondents")
 
 table(dfhc$respondent_gender)
+
 
 ```
 
 ## Topic: Wildlife Near and In Home
 
-### Variable: Seen wildlife near home, yes/no
+Respondents were asked, in two separate questions, to identify whether they had seen wildlife in or near their home. For each question, if they answered "Yes", they were asked to identify the types of wildlife they had seen. A number of categories were provided, as well as an "other" free-response option.
 
-The vast majority of respondents report having seen animals in their home.
+
+### Question: Seen wildlife near home, yes/no
+
+The vast majority of respondents report having seen animals near their home.
 
 ```{r}
 
@@ -79,15 +88,17 @@ The vast majority of respondents report having seen animals in their home.
 #   ggvis(~wildlife_near_home_yn) %>%
 #   layer_bars(fill = ~respondent_gender)
 
-qplot(x = wildlife_near_home_yn, fill = respondent_gender, data = dfhc) + theme_bw()
+
+qplot(x = wildlife_near_home_yn, data = dfhc) + theme_bw() + labs(x = "Answer", y = "Count", title = "Have you seen wildlife near your home?")
 
 table(dfhc$wildlife_near_home_yn)
 
-table(dfhc$respondent_gender, dfhc$wildlife_near_home_yn)
+
+# table(dfhc$respondent_gender, dfhc$wildlife_near_home_yn)
 
 ```
 
-A higher proportion of women report seeing wildlife near their home.
+When we break this response down by gender, we see that a higher proportion of women report seeing wildlife near their home.
 
 ```{r}
 
@@ -95,88 +106,77 @@ A higher proportion of women report seeing wildlife near their home.
 #   ggvis(~respondent_gender) %>%
 #   layer_bars(fill = ~wildlife_near_home_yn)
 
-qplot(x = respondent_gender, fill = wildlife_near_home_yn, data = dfhc, position = "fill") + theme_bw()
+qplot(x = respondent_gender, fill = wildlife_near_home_yn, data = dfhc, position = "fill") + theme_bw() + labs(x = "Respondent gender", y = "Proportion", title = "Men and women's responses to 'Wildlife near home'") + guides(fill=guide_legend(title="Response"))
+
 
 ```
 
-## Variable: Types of wildlife seen near home
+### Question: Types of wildlife seen near home
 
-Breakdown of types of animals seen near the home. The following plots represent the number of respondents who answered that they had seen the following types of animals near their homes.
+For these columns, data formatting was extremely problematic (detailed in more depth later). I wrote R code to separate the answers out, group singular and plural responses, and recategorize miscellaneous answers.
+
+The following table output summarizes these responses, totaling the number of responses in each category. If a person marked that they had seen reptiles and bats, each of those categories would be counted. Respondents who did answer the question fall into one of three categories: "skipped", "not.answered", and "blank". A respondent could not fall into more than one of those categories, and those respondents did not answer any of the other categories.
 
 ```{r}
 
-wildlife_near_home_tax_cat %>%
-  select(-PID) %>%
-  summarise_each(funs(sum)) %>%
-  str()
 
-# wildlife_near_home_tax_cat %>%
-#   gather(variable, seen, -PID) %>%
-#   mutate(seen = as.numeric(seen)) %>%
-#   left_join(dfhc) %>%
-#   ggvis(~variable, ~seen) %>%
-#   layer_bars()
 
 wildlife_near_home_tax_cat %>%
   gather(variable, seen, -PID) %>%
   mutate(seen = as.numeric(seen)) %>%
   left_join(dfhc) %>%
-  qplot(x = variable, y = seen, data = ., geom = "bar", stat = "identity") + theme_bw()
+  qplot(x = variable, y = seen, data = ., geom = "bar", stat = "identity") + theme_bw() + theme(axis.text.x = element_text(angle = 22.5, vjust = 1)) + labs(x = "Response", y = "Count", title = "Categories of animal seen near home")
+
+wildlife_near_home_tax_cat %>%
+  select(-PID) %>%
+  summarise_each(funs(sum))
+
 
 # wildlife_near_home_tax_cat %>%
 #   gather(variable, response, -PID) %>%
 #   mutate(response = as.numeric(response)) %>%
 #   left_join(dfhc) %>%
-#   ggvis(~variable, ~response) %>%
-#   layer_bars(fill = ~respondent_gender)
-
-wildlife_near_home_tax_cat %>%
-  gather(variable, response, -PID) %>%
-  mutate(response = as.numeric(response)) %>%
-  left_join(dfhc) %>%
-  arrange(respondent_gender) %>%
-  qplot(x = variable, y = response, fill = respondent_gender, data = ., geom = "bar", stat = "identity") + theme_bw()
+#   arrange(respondent_gender) %>%
+#   qplot(x = variable, y = response, fill = respondent_gender, data = ., geom = "bar", stat = "identity") + theme_bw()
 
 
 ```
 
-### Variable: Seen wildlife near home, yes/no
+### Question: Seen wildlife in home, yes/no
+
+Questions about wildlife near home were cleaned and displayed in the same way as the "Wildlife near home" responses.
+
+Overall, fewer people report having seen wildlife *in* their home than *near* it.
 
 ```{r}
 
-qplot(x = wildlife_in_home_yn, fill = respondent_gender, data = dfhc) + theme_bw()
+
+qplot(x = wildlife_in_home_yn, data = dfhc) + theme_bw() + labs(x = "Answer", y = "Count", title = "Have you seen wildlife in your home?")
+
+qplot(x = respondent_gender, fill = wildlife_in_home_yn, data = dfhc, position = "fill") + theme_bw() + labs(x = "Respondent gender", y = "Proportion", title = "Men's and women's responses to 'Wildlife in home'") + guides(fill=guide_legend(title="Response"))
 
 table(dfhc$wildlife_in_home_yn)
 
-t <- table(dfhc$respondent_gender, dfhc$wildlife_in_home_yn)
-# t
-prop.table(t)
-# margin.table(t, 1)
-# margin.table(t, 2)
-# ftable(dfhc$respondent_gender, dfhc$wildlife_in_home_yn)
-
-
 ```
 
 
-### Variable: Types of wildlife seen in home
+### Question: Types of wildlife seen in home
 
 ```{r}
 
-wildlife_near_home_tax_cat %>%
-  select(-PID) %>%
-  summarise_each(funs(sum)) %>%
-  str()
+wildlife_in_home_tax_cat %>%
+  gather(variable, seen, -PID) %>%
+  mutate(seen = as.numeric(seen)) %>%
+  left_join(dfhc) %>%
+  qplot(x = variable, y = seen, data = ., geom = "bar", stat = "identity") + theme_bw() + theme(axis.text.x = element_text(angle = 22.5, vjust = 1)) + labs(x = "Response", y = "Count", title = "Types of animal seen in home")
 
 wildlife_in_home_tax_cat %>%
-  gather(variable, response, -PID) %>%
-  mutate(response = as.numeric(response)) %>%
-  left_join(dfhc) %>%
-  qplot(x = variable, y = response, data = ., geom = "bar", stat = "identity") + theme_bw()
+  select(-PID) %>%
+  summarise_each(funs(sum))
 
 ```
 
-Comparison of types of wildlife seen *in* versus *near* respondents' homes:
+Reptiles, primates and "other" are reported a lot less frequently in homes than near homes, and rodents are reported slightly more often in homes than near.
 
 ```{r}
 
@@ -194,67 +194,111 @@ near_home <- wildlife_near_home_tax_cat %>%
 home <- bind_rows(in_home, near_home) %>%
   filter(response == 1)
 
-qplot(x = variable, fill = home, data = home, geom = "histogram", position = "dodge") + theme_bw()
+qplot(x = variable, fill = home, data = home, geom = "histogram", position = "dodge") + theme_bw() + labs(x = "Response", y = "Count", title = "Comparison of types of wildlife seen in and near homes") +  guides(fill=guide_legend(title="In or near"))
 
 ```
 
 
-### Variable: Frequency of wildlife seen in home
+### Question: Frequency of wildlife seen in home
+
+Respondents who had seen wildlife in their home were asked how often they saw this kind of wildlife. Most of the "skipped" repsonses here are probably from people who answered that they did not see wildlife in their house.
+
+Unfortunately, this question was not asked for each category the respondent mentioned seeing. However, the distribution of frequencies could be analyzed across people who responded "Yes" to different categories.
+
 
 ```{r}
 
-qplot(wildlife_in_home_freq_cat, data = dfhc) + theme_bw()
+unique(dfhc$wildlife_in_home_freq_cat)
+
+dfhc$wildlife_in_home_freq_cat <- factor(dfhc$wildlife_in_home_freq_cat, c("few times per year", "few times per month", "few times per week", "daily", "other (specify)", "other", "not answered", "skipped", "blank"))
+
+
+qplot(wildlife_in_home_freq_cat, data = dfhc) + theme_bw() + theme(axis.text.x = element_text(angle = 22.5, vjust = 1)) + labs(x = "Response", y = "Count", title = "Frequency of seeing wildlife in home")
+
 
 table(dfhc$wildlife_in_home_freq_cat)
-prop.table(table(dfhc$wildlife_in_home_freq_cat))
+# prop.table(table(dfhc$wildlife_in_home_freq_cat))
 
 ```
 
 ## Topic: Wildlife Contact
 
-### Variable: Wildlife contact type
+### Question: Wildlife contact type
+
+This question asks about the type of interaction the respondent has had with wildlife. Respondents were asked to choose between categories, including "bitten" and "scratched". There was a write-in "other" category, which was used eight times. Only one person reported being "bitten and scratched". This was counted alongside "bitten". The total number of "scratched" is 3, essentially negligible.
 
 ```{r}
 
-qplot(wildlife_contact_cat, data = dfhc) + theme_bw()
+qplot(wildlife_contact_cat, data = dfhc) + theme_bw() + labs(x = "Contact", y = "Count", title = "Type of wildlife contact")
 
 table(dfhc$wildlife_contact_cat)
-prop.table(table(dfhc$wildlife_contact_cat))
+# prop.table(table(dfhc$wildlife_contact_cat))
 
 ```
 
 
-### Variable: Species of contact, amongst those who report "bitten"
+### Question: Species of contact, amongst those who report "bitten"
+
+Most responses reporting animal contact indicated they were bitten (25 total). The chart below displays their responses. The majority of the responses were "other" (13), with reptiles (5) and rodents (4) also featuring.
 
 ```{r}
 
 bitten <- filter(dfhc, wildlife_contact_cat == "bitten")
 
-qplot(wildlife_species_tax_cat, data = bitten) + theme_bw()
+qplot(wildlife_species_tax_cat, data = bitten) + theme_bw() + labs(x = "Wildlife category", y = "Count", title = "Type of wildlife respondent was bitten by")
 
 table(bitten$wildlife_species_tax_cat)
-prop.table(table(bitten$wildlife_species_tax_cat))
+# prop.table(table(bitten$wildlife_species_tax_cat))
 
 ```
 
-### Variable: Where contact happened, amongst those who report "bitten"
+### Question: Where contact happened, amongst those who report "bitten"
+
+Respondents were asked to select between a few different location categories. Most responses were correctly recorded. The few that did not match were easily reclassifiable (e.g. "in the garden" -> "in home"), but more stringent data collection would remove the friction of this sort of data cleaning.In addition, almost half the responses were write-ins in "other".
 
 ```{r}
 
-qplot(where_contact_happened_cat, data = bitten) + theme_bw()
+qplot(where_contact_happened_cat, data = bitten) + theme_bw() + labs(x = "Location", y = "Count", title = "Where bites from wildlife occurred")
 
 table(bitten$where_contact_happened_cat)
-prop.table(table(bitten$where_contact_happened_cat))
+# prop.table(table(bitten$where_contact_happened_cat))
 
 ```
 
-### Variable: How often do you enter the forest?
+## Topic: Contact with Forest
+
+### Question: How often do you enter the forest?
 
 ```{r}
 
-qplot(enter_forest_how_often_freq_cat, data = dfhc) + theme_bw()
+# d$Team2 <- factor(d$Team1, c("Cowboys", "Giants", "Eagles", "Redskins"))
+
+dfhc$enter_forest_how_often_freq_cat <- revalue(dfhc$enter_forest_how_often_freq_cat, replace = c("not answered " = "not answered"))
+
+dfhc$enter_forest_how_often_freq_cat <- factor(dfhc$enter_forest_how_often_freq_cat, c("never", "few times per year", "few times per month", "few times per week", "daily", "other", "not answered", "blank"))
+
+qplot(enter_forest_how_often_freq_cat, data = dfhc) + theme_bw() + theme(axis.text.x = element_text(angle = 22.5, vjust = 1)) + labs(x = "Response", y = "Count", title = "Frequency of forest contact")
 
 table(dfhc$enter_forest_how_often_freq_cat)
-prop.table(table(dfhc$enter_forest_how_often_freq_cat))
+# prop.table(table(dfhc$enter_forest_how_often_freq_cat))
 
 ```
+
+## Addendum: Data Collection Practices and Data Format
+
+There were a number of issues with data formatting in the DFHC Excel. These cause major friction between data collection and analysis, require a large investment of time to transform the data into something useful. At worst, done by hand, the time required can be hours per column. At best, done programmatically (e.g. in R) the process is still painstaking and hours-long, and each question still requires significant individual attention.
+
+Examples of problems include:
+
+1. Multi-select questions, such as questions asking which types of animals a respondent has seen in or near their house, are in a single column. Distinct values were separated by commas, and sometimes the word "and". Conceptually, these can be thought of as a series of yes/no responses to multiple questions, and should be formatted as such in the data when it is entered.
+2. Answers require the selection of a category, including both multi-select questions discussed above and single-choice questions, were given responses outside of the categories. Sometimes these were additional categories such as "in the garden" where "in the home" would be appropriate. Some were answers which should have been coded as "other" and written in (e.g. "elephant" for taxonomical categories). Others were simple misspellings of existing categories, or pluralizations of singular category names, which are equally harmful for data utility.
+
+There were many variations on these issues. For example, reports of household member ages were stored in written lists, with values separated by commas and "and", and some ages given in years, some in months, and some in days. Conceptually, these are each separate data entities.
+
+The use of Excel is also problematic. Excel is a poor tool for storing data for later analysis, especially with complex data that translates poorly to a flat table, or where multiple values have to be stored in single cells.
+
+More strict requirements for data entry would go some way to solving these problems. The best solution, however, would be to use a data collection app, such as ODK Collect, which the Tech team is currently implementing for the Rift Valley Fever survey project. These apps emulate paper forms on a tablet or smartphone, but store the data on the back end in a completely consistent and immediately usable format.
+
+Even with an app, free-response fields alongside categorical questions will always pose a problem for data analysis. If the categorical fields in the DFHC Excel file took hours to get usable data, the free-response fields would take longer and likely yield minimal information—you’re investing even more time for only a subset of respondents. Furthermore, the mere presence of an "other" field could cause people to select that and write in a response which could have fallen into an existing category or should have been a category provided.
+
+On this question, I come down on the side of removing "other" or only using it for very specific circumstances, and carefully thinking through categories—and testing them with pilot surveys.
